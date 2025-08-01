@@ -1,110 +1,257 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import React from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Dimensions,
+} from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
 
-import { Collapsible } from '@/components/Collapsible';
-import { ExternalLink } from '@/components/ExternalLink';
-import ParallaxScrollView from '@/components/ParallaxScrollView';
-import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
-import { IconSymbol } from '@/components/ui/IconSymbol';
+const { width } = Dimensions.get('window');
 
-export default function TabTwoScreen() {
+export default function ExploreScreen() {
+  const router = useRouter();
+  const cardOpacity = useSharedValue(0);
+
+  React.useEffect(() => {
+    cardOpacity.value = withTiming(1, { duration: 1000 });
+  }, []);
+
+  const billServices = [
+    {
+      id: '1',
+      title: 'Airtime',
+      subtitle: 'Buy airtime for all networks',
+      icon: 'phone-portrait',
+      color: '#FF6B35',
+      bgColor: '#FF6B35',
+      route: 'airtime-purchase',
+    },
+    {
+      id: '2',
+      title: 'Data',
+      subtitle: 'Buy data bundles',
+      icon: 'wifi',
+      color: '#2196F3',
+      bgColor: '#2196F3',
+      route: 'data-purchase',
+    },
+    {
+      id: '3',
+      title: 'Electricity',
+      subtitle: 'Pay electricity bills',
+      icon: 'flash',
+      color: '#FF9800',
+      bgColor: '#FF9800',
+      route: 'electricity-purchase',
+    },
+    {
+      id: '4',
+      title: 'Cable TV',
+      subtitle: 'Pay cable TV bills',
+      icon: 'tv',
+      color: '#9C27B0',
+      bgColor: '#9C27B0',
+      route: 'cable-tv-purchase',
+    },
+    {
+      id: '5',
+      title: 'Education',
+      subtitle: 'Pay school fees',
+      icon: 'school',
+      color: '#4CAF50',
+      bgColor: '#4CAF50',
+      route: 'education-purchase',
+    },
+    {
+      id: '6',
+      title: 'Betting',
+      subtitle: 'Fund betting accounts',
+      icon: 'trophy',
+      color: '#E91E63',
+      bgColor: '#E91E63',
+      route: 'betting-purchase',
+    },
+  ];
+
+
+
+  const handleServicePress = (service: any) => {
+    if (service.route) {
+      router.push(service.route as any);
+    }
+  };
+
+  const cardAnimatedStyle = useAnimatedStyle(() => {
+    return {
+      opacity: cardOpacity.value,
+      transform: [
+        {
+          translateY: withSpring(cardOpacity.value * 20, {
+            damping: 15,
+            stiffness: 100,
+          }),
+        },
+      ],
+    };
+  });
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#D0D0D0', dark: '#353636' }}
-      headerImage={
-        <IconSymbol
-          size={310}
-          color="#808080"
-          name="chevron.left.forwardslash.chevron.right"
-          style={styles.headerImage}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Explore</ThemedText>
-      </ThemedView>
-      <ThemedText>This app includes example code to help you get started.</ThemedText>
-      <Collapsible title="File-based routing">
-        <ThemedText>
-          This app has two screens:{' '}
-          <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> and{' '}
-          <ThemedText type="defaultSemiBold">app/(tabs)/explore.tsx</ThemedText>
-        </ThemedText>
-        <ThemedText>
-          The layout file in <ThemedText type="defaultSemiBold">app/(tabs)/_layout.tsx</ThemedText>{' '}
-          sets up the tab navigator.
-        </ThemedText>
-        <ExternalLink href="https://docs.expo.dev/router/introduction">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Android, iOS, and web support">
-        <ThemedText>
-          You can open this project on Android, iOS, and the web. To open the web version, press{' '}
-          <ThemedText type="defaultSemiBold">w</ThemedText> in the terminal running this project.
-        </ThemedText>
-      </Collapsible>
-      <Collapsible title="Images">
-        <ThemedText>
-          For static images, you can use the <ThemedText type="defaultSemiBold">@2x</ThemedText> and{' '}
-          <ThemedText type="defaultSemiBold">@3x</ThemedText> suffixes to provide files for
-          different screen densities
-        </ThemedText>
-        <Image source={require('@/assets/images/react-logo.png')} style={{ alignSelf: 'center' }} />
-        <ExternalLink href="https://reactnative.dev/docs/images">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Custom fonts">
-        <ThemedText>
-          Open <ThemedText type="defaultSemiBold">app/_layout.tsx</ThemedText> to see how to load{' '}
-          <ThemedText style={{ fontFamily: 'SpaceMono' }}>
-            custom fonts such as this one.
-          </ThemedText>
-        </ThemedText>
-        <ExternalLink href="https://docs.expo.dev/versions/latest/sdk/font">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Light and dark mode components">
-        <ThemedText>
-          This template has light and dark mode support. The{' '}
-          <ThemedText type="defaultSemiBold">useColorScheme()</ThemedText> hook lets you inspect
-          what the user&apos;s current color scheme is, and so you can adjust UI colors accordingly.
-        </ThemedText>
-        <ExternalLink href="https://docs.expo.dev/develop/user-interface/color-themes/">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Animations">
-        <ThemedText>
-          This template includes an example of an animated component. The{' '}
-          <ThemedText type="defaultSemiBold">components/HelloWave.tsx</ThemedText> component uses
-          the powerful <ThemedText type="defaultSemiBold">react-native-reanimated</ThemedText>{' '}
-          library to create a waving hand animation.
-        </ThemedText>
-        {Platform.select({
-          ios: (
-            <ThemedText>
-              The <ThemedText type="defaultSemiBold">components/ParallaxScrollView.tsx</ThemedText>{' '}
-              component provides a parallax effect for the header image.
-            </ThemedText>
-          ),
-        })}
-      </Collapsible>
-    </ParallaxScrollView>
+    <View style={styles.container}>
+      {/* Header */}
+      <LinearGradient
+        colors={['#FF6B35', '#F7931E']}
+        style={styles.header}
+      >
+        <View style={styles.headerContent}>
+          <View>
+            <Text style={styles.title}>Pay Bills</Text>
+            <Text style={styles.subtitle}>Choose a service to pay your bills</Text>
+          </View>
+          <TouchableOpacity style={styles.searchButton}>
+            <Ionicons name="search" size={24} color="white" />
+          </TouchableOpacity>
+        </View>
+      </LinearGradient>
+
+      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+        {/* Bill Services */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Bill Payments</Text>
+          <Animated.View style={[styles.billServicesGrid, cardAnimatedStyle]}>
+            {billServices.map((service) => (
+              <TouchableOpacity 
+                key={service.id} 
+                style={styles.billServiceItem}
+                onPress={() => handleServicePress(service)}
+              >
+                <LinearGradient
+                  colors={[service.bgColor, service.bgColor + 'CC']}
+                  style={styles.billServiceGradient}
+                >
+                  <View style={styles.billServiceContent}>
+                    <View style={styles.billServiceIcon}>
+                      <Ionicons name={service.icon as any} size={32} color="white" />
+                    </View>
+                    <View style={styles.billServiceText}>
+                      <Text style={styles.billServiceTitle}>{service.title}</Text>
+                      <Text style={styles.billServiceSubtitle}>{service.subtitle}</Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={20} color="white" />
+                  </View>
+                </LinearGradient>
+              </TouchableOpacity>
+            ))}
+          </Animated.View>
+        </View>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  headerImage: {
-    color: '#808080',
-    bottom: -90,
-    left: -35,
-    position: 'absolute',
+  container: {
+    flex: 1,
+    backgroundColor: '#f8f9fa',
   },
-  titleContainer: {
+  header: {
+    paddingTop: 60,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+  },
+  headerContent: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: 'white',
+  },
+  subtitle: {
+    fontSize: 16,
+    color: 'rgba(255, 255, 255, 0.8)',
+    marginTop: 5,
+  },
+  searchButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  section: {
+    paddingHorizontal: 20,
+    marginBottom: 20,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 15,
+  },
+  billServicesGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 8,
+  },
+  billServiceItem: {
+    width: '48%',
+    height: 85,
+    borderRadius: 8,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  billServiceGradient: {
+    padding: 10,
+    height: '100%',
+  },
+  billServiceContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  billServiceIcon: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  billServiceText: {
+    flex: 1,
+  },
+  billServiceTitle: {
+    fontSize: 13,
+    fontWeight: 'bold',
+    color: 'white',
+    marginBottom: 1,
+  },
+  billServiceSubtitle: {
+    fontSize: 10,
+    color: 'rgba(255, 255, 255, 0.8)',
   },
 });
