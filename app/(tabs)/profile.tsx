@@ -188,16 +188,7 @@ export default function ProfileScreen() {
       .slice(0, 2);
   };
 
-  const getMemberSince = () => {
-    if (profile?.created_at) {
-      const date = new Date(profile.created_at);
-      return date.toLocaleDateString('en-US', { 
-        year: 'numeric', 
-        month: 'long' 
-      });
-    }
-    return 'Recently';
-  };
+
 
   const isAdminUser = () => {
     // Check if user has admin role in metadata or email contains admin
@@ -355,7 +346,6 @@ export default function ProfileScreen() {
               </Text>
               <Text style={styles.userEmail}>{getUserEmail()}</Text>
               <Text style={styles.userPhone}>{getUserPhone()}</Text>
-              <Text style={styles.memberSince}>Member since {getMemberSince()}</Text>
             </View>
           </LinearGradient>
         </Animated.View>
@@ -550,10 +540,7 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.8)',
     marginBottom: 2,
   },
-  memberSince: {
-    fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.7)',
-  },
+
   section: {
     paddingHorizontal: 20,
     marginBottom: 20,
