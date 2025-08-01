@@ -1,27 +1,28 @@
-import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  TextInput,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  Modal,
-  FlatList,
-  Image,
-} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import React, { useEffect, useState } from 'react';
+import {
+    Alert,
+    FlatList,
+    Image,
+    KeyboardAvoidingView,
+    Modal,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
+} from 'react-native';
 import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-  withTiming,
+    useAnimatedStyle,
+    useSharedValue,
+    withSpring,
+    withTiming,
 } from 'react-native-reanimated';
+import { dataPurchaseService } from '../lib/services';
 
 export default function DataPurchaseScreen() {
   const router = useRouter();
@@ -30,46 +31,57 @@ export default function DataPurchaseScreen() {
   const [selectedPlan, setSelectedPlan] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPlanDropdown, setShowPlanDropdown] = useState(false);
+  const [dataPlans, setDataPlans] = useState([]);
+  const [fetchingPlans, setFetchingPlans] = useState(false);
   const cardOpacity = useSharedValue(0);
 
   React.useEffect(() => {
     cardOpacity.value = withTiming(1, { duration: 800 });
   }, []);
 
+  // Fetch data plans when component mounts
+  useEffect(() => {
+    fetchDataPlans();
+  }, []);
+
+  const fetchDataPlans = async () => {
+    setFetchingPlans(true);
+    try {
+      const plans = await dataPurchaseService.getDataPlans();
+      setDataPlans(plans);
+    } catch (error) {
+      console.error('Error fetching data plans:', error);
+      Alert.alert('Error', 'Failed to load data plans. Please try again.');
+    } finally {
+      setFetchingPlans(false);
+    }
+  };
+
   const networks = [
     { 
-      id: 'mtn', 
+      id: '1', 
       name: 'MTN', 
       color: '#FFC107', 
       logo: require('../assets/images/mtn.png') 
     },
     { 
-      id: 'airtel', 
+      id: '2', 
       name: 'Airtel', 
       color: '#E91E63', 
       logo: require('../assets/images/airtel.png') 
     },
     { 
-      id: 'glo', 
-      name: 'Glo', 
-      color: '#4CAF50', 
-      logo: require('../assets/images/glo.png') 
-    },
-    { 
-      id: '9mobile', 
+      id: '3', 
       name: '9mobile', 
       color: '#2196F3', 
       logo: require('../assets/images/9mobile.png') 
     },
-  ];
-
-  const dataPlans = [
-    { id: '1', name: '1GB', size: '1GB', duration: '30 days', price: 200, popular: false },
-    { id: '2', name: '2GB', size: '2GB', duration: '30 days', price: 400, popular: true },
-    { id: '3', name: '5GB', size: '5GB', duration: '30 days', price: 1000, popular: false },
-    { id: '4', name: '10GB', size: '10GB', duration: '30 days', price: 2000, popular: false },
-    { id: '5', name: '20GB', size: '20GB', duration: '30 days', price: 4000, popular: false },
-    { id: '6', name: '50GB', size: '50GB', duration: '30 days', price: 10000, popular: false },
+    { 
+      id: '4', 
+      name: 'Glo', 
+      color: '#4CAF50', 
+      logo: require('../assets/images/glo.png') 
+    },
   ];
 
   const selectedPlanData = dataPlans.find(p => p.id === selectedPlan);
@@ -88,26 +100,28 @@ export default function DataPurchaseScreen() {
       return;
     }
 
-    const plan = dataPlans.find(p => p.id === selectedPlan);
-    if (!plan) return;
-
     setLoading(true);
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      const result = await dataPurchaseService.purchaseData(
+        selectedNetwork,
+        phoneNumber,
+        selectedPlan
+      );
       
       // Navigate to success screen with transaction data
       router.push({
         pathname: '/transaction-success',
         params: {
           type: 'Data Purchase',
-          amount: `₦${plan.price.toLocaleString()}`,
+          amount: `₦${selectedPlanData?.price || 0}`,
           recipient: phoneNumber,
-          reference: 'TXN' + Date.now(),
+          reference: result.reference,
+          dataStatus: result.dataStatus,
         },
       });
     } catch (error) {
-      Alert.alert('Error', 'Purchase failed. Please try again.');
+      console.error('Purchase error:', error);
+      Alert.alert('Error', error.message || 'Purchase failed. Please try again.');
     } finally {
       setLoading(false);
     }

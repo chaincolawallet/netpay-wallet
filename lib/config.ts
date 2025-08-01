@@ -26,6 +26,12 @@ export const config = {
     gatewayKey: process.env.EXPO_PUBLIC_PAYMENT_GATEWAY_KEY || "",
   },
 
+  // SME Plug API Configuration
+  smePlug: {
+    apiKey: process.env.EXPO_PUBLIC_SMEPLUG_API_KEY || "",
+    baseUrl: process.env.EXPO_PUBLIC_SMEPLUG_BASE_URL || "https://smeplug.ng/api/v1",
+  },
+
   // Deep Linking Configuration
   deepLinking: {
     baseUrl: process.env.EXPO_PUBLIC_APP_URL || "https://www.netpayy.ng",

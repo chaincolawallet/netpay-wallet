@@ -35,44 +35,176 @@ export interface VerifyEmailRequest {
 // Airtime Purchase Service
 export const airtimeService = {
   async getNetworks() {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('User not authenticated');
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
 
-    const response = await fetch(`${config.supabase.url}/functions/v1/airtime-purchase`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
-      },
-      body: JSON.stringify({ action: 'get_networks' }),
-    });
+      // Get the SME Plug API key from environment
+      const smePlugApiKey = config.smePlug.apiKey;
+      if (!smePlugApiKey) {
+        throw new Error('SME Plug API key not configured');
+      }
 
-    const result = await response.json();
-    if (!result.success) throw new Error(result.error);
-    return result.networks;
+      const response = await fetch('https://smeplug.ng/api/v1/networks', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${smePlugApiKey}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`SME Plug API error: ${response.status} ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      
+      if (!result.status) {
+        throw new Error('Failed to retrieve networks from SME Plug');
+      }
+
+      // Transform the networks object to a more usable format
+      const networks = Object.entries(result.networks).map(([id, name]) => ({
+        id,
+        name,
+        code: name.toLowerCase().replace(/\s+/g, ''),
+      }));
+
+      return networks;
+    } catch (error) {
+      console.error('Error fetching networks:', error);
+      throw error;
+    }
   },
 
   async purchaseAirtime(networkId: string, phoneNumber: string, amount: number) {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('User not authenticated');
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
 
-    const response = await fetch(`${config.supabase.url}/functions/v1/airtime-purchase`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
-      },
-      body: JSON.stringify({
-        action: 'purchase_airtime',
-        network_id: networkId,
-        phone_number: phoneNumber,
-        amount: amount,
-      }),
-    });
+      // Get the SME Plug API key from environment
+      const smePlugApiKey = config.smePlug.apiKey;
+      if (!smePlugApiKey) {
+        throw new Error('SME Plug API key not configured');
+      }
 
-    const result = await response.json();
-    if (!result.success) throw new Error(result.error);
-    return result.data;
+      // Validate inputs
+      if (!networkId || !phoneNumber || !amount) {
+        throw new Error('Missing required parameters');
+      }
+
+      if (amount <= 0) {
+        throw new Error('Amount must be greater than 0');
+      }
+
+      // Format phone number (remove spaces, dashes, etc.)
+      const formattedPhone = phoneNumber.replace(/[\s\-\(\)]/g, '');
+
+      // Validate phone number format
+      if (!/^(\+234|234|0)?[789][01]\d{8}$/.test(formattedPhone)) {
+        throw new Error('Invalid phone number format');
+      }
+
+      // Ensure phone number starts with 0 (Nigerian format)
+      const normalizedPhone = formattedPhone.startsWith('234') 
+        ? '0' + formattedPhone.slice(3)
+        : formattedPhone.startsWith('+234')
+          ? '0' + formattedPhone.slice(4)
+          : formattedPhone.startsWith('0')
+            ? formattedPhone
+            : '0' + formattedPhone;
+
+      // Generate unique customer reference
+      const customerReference = `NP_${Date.now()}_${user.id}`;
+
+      const response = await fetch('https://smeplug.ng/api/v1/airtime/purchase', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${smePlugApiKey}`,
+        },
+        body: JSON.stringify({
+          network_id: parseInt(networkId),
+          phone: normalizedPhone,
+          amount: amount,
+          customer_reference: customerReference,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(`SME Plug API error: ${response.status} ${response.statusText} - ${errorData.message || ''}`);
+      }
+
+      const result = await response.json();
+      
+      if (!result.status) {
+        throw new Error(result.message || 'Airtime purchase failed');
+      }
+
+      // Log the transaction in our database
+      await this.logAirtimeTransaction(user.id, {
+        networkId,
+        phoneNumber: normalizedPhone,
+        amount,
+        reference: customerReference,
+        status: result.status ? 'success' : 'failed',
+        smePlugResponse: result,
+      });
+
+      return {
+        success: true,
+        reference: customerReference,
+        message: result.message || 'Airtime purchase successful',
+        data: result,
+      };
+    } catch (error) {
+      console.error('Error purchasing airtime:', error);
+      throw error;
+    }
+  },
+
+  async logAirtimeTransaction(userId: string, transactionData: any) {
+    try {
+      const { error } = await supabase
+        .from('airtime_transactions')
+        .insert({
+          user_id: userId,
+          network_id: transactionData.networkId,
+          phone_number: transactionData.phoneNumber,
+          amount: transactionData.amount,
+          reference: transactionData.reference,
+          status: transactionData.status,
+          sme_plug_response: transactionData.smePlugResponse,
+          created_at: new Date().toISOString(),
+        });
+
+      if (error) {
+        console.error('Error logging airtime transaction:', error);
+      }
+    } catch (error) {
+      console.error('Error logging airtime transaction:', error);
+    }
+  },
+
+  async getAirtimeHistory(limit = 10) {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      const { data, error } = await supabase
+        .from('airtime_transactions')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(limit);
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching airtime history:', error);
+      throw error;
+    }
   },
 };
 
@@ -520,6 +652,173 @@ export const biometricService = {
     }
   },
 }; 
+
+// Data Purchase Service
+export const dataPurchaseService = {
+  async getDataPlans() {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      // Get the SME Plug API key from environment
+      const smePlugApiKey = config.smePlug.apiKey;
+      if (!smePlugApiKey) {
+        throw new Error('SME Plug API key not configured');
+      }
+
+      const response = await fetch('https://smeplug.ng/api/v1/data/plans', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${smePlugApiKey}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`SME Plug API error: ${response.status} ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      
+      if (!result.status) {
+        throw new Error('Failed to retrieve data plans from SME Plug');
+      }
+
+      return result.plans || [];
+    } catch (error) {
+      console.error('Error fetching data plans:', error);
+      throw error;
+    }
+  },
+
+  async purchaseData(networkId: string, phoneNumber: string, planId: string) {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      // Get the SME Plug API key from environment
+      const smePlugApiKey = config.smePlug.apiKey;
+      if (!smePlugApiKey) {
+        throw new Error('SME Plug API key not configured');
+      }
+
+      // Validate inputs
+      if (!networkId || !phoneNumber || !planId) {
+        throw new Error('Missing required parameters');
+      }
+
+      // Format phone number (remove spaces, dashes, etc.)
+      const formattedPhone = phoneNumber.replace(/[\s\-\(\)]/g, '');
+
+      // Validate phone number format
+      if (!/^(\+234|234|0)?[789][01]\d{8}$/.test(formattedPhone)) {
+        throw new Error('Invalid phone number format');
+      }
+
+      // Ensure phone number starts with 0 (Nigerian format)
+      const normalizedPhone = formattedPhone.startsWith('234') 
+        ? '0' + formattedPhone.slice(3)
+        : formattedPhone.startsWith('+234')
+          ? '0' + formattedPhone.slice(4)
+          : formattedPhone.startsWith('0')
+            ? formattedPhone
+            : '0' + formattedPhone;
+
+      // Generate unique customer reference
+      const customerReference = `NP_DATA_${Date.now()}_${user.id}`;
+
+      const response = await fetch('https://smeplug.ng/api/v1/data/purchase', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${smePlugApiKey}`,
+        },
+        body: JSON.stringify({
+          network_id: parseInt(networkId),
+          plan_id: parseInt(planId),
+          phone: normalizedPhone,
+          customer_reference: customerReference,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(`SME Plug API error: ${response.status} ${response.statusText} - ${errorData.message || ''}`);
+      }
+
+      const result = await response.json();
+      
+      if (!result.status) {
+        throw new Error(result.message || 'Data purchase failed');
+      }
+
+      // Log the transaction in our database
+      await this.logDataTransaction(user.id, {
+        networkId,
+        phoneNumber: normalizedPhone,
+        planId,
+        reference: customerReference,
+        status: result.status ? 'success' : 'failed',
+        dataStatus: result.data?.current_status || 'unknown',
+        smePlugResponse: result,
+      });
+
+      return {
+        success: true,
+        reference: customerReference,
+        message: result.message || 'Data purchase successful',
+        dataStatus: result.data?.current_status || 'unknown',
+        data: result,
+      };
+    } catch (error) {
+      console.error('Error purchasing data:', error);
+      throw error;
+    }
+  },
+
+  async logDataTransaction(userId: string, transactionData: any) {
+    try {
+      const { error } = await supabase
+        .from('data_transactions')
+        .insert({
+          user_id: userId,
+          network_id: transactionData.networkId,
+          phone_number: transactionData.phoneNumber,
+          plan_id: transactionData.planId,
+          reference: transactionData.reference,
+          status: transactionData.status,
+          sme_plug_response: transactionData.smePlugResponse,
+          created_at: new Date().toISOString(),
+        });
+
+      if (error) {
+        console.error('Error logging data transaction:', error);
+      }
+    } catch (error) {
+      console.error('Error logging data transaction:', error);
+    }
+  },
+
+  async getDataHistory(limit = 10) {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      const { data, error } = await supabase
+        .from('data_transactions')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(limit);
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching data history:', error);
+      throw error;
+    }
+  },
+};
 
 // Account Deletion Service
 export const accountDeletionService = {

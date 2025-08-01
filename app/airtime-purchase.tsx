@@ -1,25 +1,26 @@
-import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  TextInput,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  Image,
-} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import React, { useEffect, useState } from 'react';
+import {
+    Alert,
+    Image,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
+} from 'react-native';
 import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-  withTiming,
+    useAnimatedStyle,
+    useSharedValue,
+    withSpring,
+    withTiming,
 } from 'react-native-reanimated';
+import { airtimeService } from '../lib/services';
 
 export default function AirtimePurchaseScreen() {
   const router = useRouter();
@@ -27,40 +28,67 @@ export default function AirtimePurchaseScreen() {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [amount, setAmount] = useState('');
   const [loading, setLoading] = useState(false);
+  const [networks, setNetworks] = useState([]);
+  const [fetchingNetworks, setFetchingNetworks] = useState(false);
   const cardOpacity = useSharedValue(0);
 
   React.useEffect(() => {
     cardOpacity.value = withTiming(1, { duration: 800 });
   }, []);
 
-  const networks = [
-    { 
-      id: 'mtn', 
-      name: 'MTN', 
-      color: '#FFC107', 
-      logo: require('../assets/images/mtn.png') 
-    },
-    { 
-      id: 'airtel', 
-      name: 'Airtel', 
-      color: '#E91E63', 
-      logo: require('../assets/images/airtel.png') 
-    },
-    { 
-      id: 'glo', 
-      name: 'Glo', 
-      color: '#4CAF50', 
-      logo: require('../assets/images/glo.png') 
-    },
-    { 
-      id: '9mobile', 
-      name: '9mobile', 
-      color: '#2196F3', 
-      logo: require('../assets/images/9mobile.png') 
-    },
-  ];
+  // Fetch networks when component mounts
+  useEffect(() => {
+    fetchNetworks();
+  }, []);
+
+  const fetchNetworks = async () => {
+    setFetchingNetworks(true);
+    try {
+      const networkData = await airtimeService.getNetworks();
+      setNetworks(networkData);
+    } catch (error) {
+      console.error('Error fetching networks:', error);
+      Alert.alert('Error', 'Failed to load networks. Please try again.');
+    } finally {
+      setFetchingNetworks(false);
+    }
+  };
 
   const quickAmounts = [100, 200, 500, 1000, 2000, 5000];
+
+  // Helper function to get network logo based on network name
+  const getNetworkLogo = (networkName: string) => {
+    const networkNameLower = networkName.toLowerCase();
+    switch (networkNameLower) {
+      case 'mtn':
+        return require('../assets/images/mtn.png');
+      case 'airtel':
+        return require('../assets/images/airtel.png');
+      case 'glo':
+        return require('../assets/images/glo.png');
+      case '9mobile':
+        return require('../assets/images/9mobile.png');
+      default:
+        return require('../assets/images/mtn.png'); // Default fallback
+    }
+  };
+
+  // Helper function to get network color
+  const getNetworkColor = (networkName: string) => {
+    const networkNameLower = networkName.toLowerCase();
+    switch (networkNameLower) {
+      case 'mtn':
+        return '#FFC107';
+      case 'airtel':
+        return '#E91E63';
+      case 'glo':
+        return '#4CAF50';
+      case '9mobile':
+        return '#2196F3';
+      default:
+        return '#666';
+    }
+  };
 
   const handlePurchase = async () => {
     if (!selectedNetwork) {
@@ -78,8 +106,11 @@ export default function AirtimePurchaseScreen() {
 
     setLoading(true);
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      const result = await airtimeService.purchaseAirtime(
+        selectedNetwork,
+        phoneNumber,
+        parseFloat(amount)
+      );
       
       // Navigate to success screen with transaction data
       router.push({
@@ -88,11 +119,12 @@ export default function AirtimePurchaseScreen() {
           type: 'Airtime Purchase',
           amount: `₦${parseFloat(amount).toLocaleString()}`,
           recipient: phoneNumber,
-          reference: 'TXN' + Date.now(),
+          reference: result.reference,
         },
       });
     } catch (error) {
-      Alert.alert('Error', 'Purchase failed. Please try again.');
+      console.error('Purchase error:', error);
+      Alert.alert('Error', error.message || 'Purchase failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -137,39 +169,46 @@ export default function AirtimePurchaseScreen() {
           {/* Network Selection */}
           <Animated.View style={[styles.section, cardAnimatedStyle]}>
             <Text style={styles.sectionTitle}>Select Network</Text>
-            <ScrollView 
-              horizontal 
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.networksRow}
-            >
-              {networks.map((network) => (
-                <TouchableOpacity
-                  key={network.id}
-                  style={[
-                    styles.networkCard,
-                    selectedNetwork === network.id && styles.networkCardSelected,
-                  ]}
-                  onPress={() => setSelectedNetwork(network.id)}
-                >
-                  <View style={[
-                    styles.networkLogoContainer,
-                    selectedNetwork === network.id && styles.networkLogoContainerSelected,
-                  ]}>
-                    <Image
-                      source={network.logo}
-                      style={styles.networkLogo}
-                      resizeMode="contain"
-                    />
-                  </View>
-                  <Text style={[
-                    styles.networkName,
-                    selectedNetwork === network.id && styles.networkNameSelected,
-                  ]}>
-                    {network.name}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
+            {fetchingNetworks ? (
+              <View style={styles.loadingContainer}>
+                <Ionicons name="refresh" size={24} color="#666" />
+                <Text style={styles.loadingText}>Loading networks...</Text>
+              </View>
+            ) : (
+              <ScrollView 
+                horizontal 
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.networksRow}
+              >
+                {networks.map((network) => (
+                  <TouchableOpacity
+                    key={network.id}
+                    style={[
+                      styles.networkCard,
+                      selectedNetwork === network.id && styles.networkCardSelected,
+                    ]}
+                    onPress={() => setSelectedNetwork(network.id)}
+                  >
+                    <View style={[
+                      styles.networkLogoContainer,
+                      selectedNetwork === network.id && styles.networkLogoContainerSelected,
+                    ]}>
+                      <Image
+                        source={getNetworkLogo(network.name)}
+                        style={styles.networkLogo}
+                        resizeMode="contain"
+                      />
+                    </View>
+                    <Text style={[
+                      styles.networkName,
+                      selectedNetwork === network.id && styles.networkNameSelected,
+                    ]}>
+                      {network.name}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            )}
           </Animated.View>
 
           {/* Phone Number Input */}
@@ -453,6 +492,16 @@ const styles = StyleSheet.create({
     color: '#FF6B35',
     fontSize: 18,
     fontWeight: 'bold',
+  },
+  loadingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 20,
+  },
+  loadingText: {
+    fontSize: 14,
+    color: 'white',
+    marginTop: 8,
   },
   networksRow: {
     flexDirection: 'row',
