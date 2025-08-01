@@ -1,4 +1,5 @@
 import * as LocalAuthentication from 'expo-local-authentication';
+import { config } from './config';
 import { supabase } from './supabase';
 
 // Types for API requests and responses
@@ -37,7 +38,7 @@ export const airtimeService = {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('User not authenticated');
 
-    const response = await fetch(`${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/airtime-purchase`, {
+    const response = await fetch(`${config.supabase.url}/functions/v1/airtime-purchase`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -55,7 +56,7 @@ export const airtimeService = {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('User not authenticated');
 
-    const response = await fetch(`${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/airtime-purchase`, {
+    const response = await fetch(`${config.supabase.url}/functions/v1/airtime-purchase`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -81,7 +82,7 @@ export const transferService = {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('User not authenticated');
 
-    const response = await fetch(`${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/transfer-to-user`, {
+    const response = await fetch(`${config.supabase.url}/functions/v1/transfer-to-user`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -103,7 +104,7 @@ export const transferService = {
 // Notification Services
 export const notificationService = {
   async sendPushNotification(userId: string, title: string, message: string, type = 'info', data = {}) {
-    const response = await fetch(`${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/send-push-notification`, {
+    const response = await fetch(`${config.supabase.url}/functions/v1/send-push-notification`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -124,7 +125,7 @@ export const notificationService = {
   },
 
   async sendEmailNotification(userId: string, title: string, message: string, type = 'info') {
-    const response = await fetch(`${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/send-email-notification`, {
+    const response = await fetch(`${config.supabase.url}/functions/v1/send-email-notification`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -147,7 +148,7 @@ export const notificationService = {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('User not authenticated');
 
-    const response = await fetch(`${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/update-notification-preferences`, {
+    const response = await fetch(`${config.supabase.url}/functions/v1/update-notification-preferences`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -182,7 +183,7 @@ export const pinService = {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('User not authenticated');
 
-    const response = await fetch(`${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/update-pin`, {
+    const response = await fetch(`${config.supabase.url}/functions/v1/update-pin`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -223,7 +224,7 @@ export const pinService = {
 // User Verification Service
 export const userService = {
   async verifyUserEmail(email: string) {
-    const response = await fetch(`${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/verify-user-email`, {
+    const response = await fetch(`${config.supabase.url}/functions/v1/verify-user-email`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -243,7 +244,7 @@ export const virtualAccountService = {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('User not authenticated');
 
-    const response = await fetch(`${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/create-virtual-account`, {
+    const response = await fetch(`${config.supabase.url}/functions/v1/create-virtual-account`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

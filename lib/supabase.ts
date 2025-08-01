@@ -1,9 +1,10 @@
 import { createClient } from '@supabase/supabase-js';
+import { config } from './config';
 import type { Database } from './database';
 
-// Supabase configuration - using environment variables
-const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL || "https://saswevstdrgcxgyahngf.supabase.co";
-const SUPABASE_PUBLISHABLE_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNhc3dldnN0ZHJnY3hneWFobmdmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM5MTI5ODIsImV4cCI6MjA2OTQ4ODk4Mn0.Iyvr-GjCLl1jnM-LawBL13fku25miCGx_0maKW1UPSw";
+// Supabase configuration - using centralized config
+const SUPABASE_URL = config.supabase.url;
+const SUPABASE_PUBLISHABLE_KEY = config.supabase.anonKey;
 
 // Create Supabase client with correct database types
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {

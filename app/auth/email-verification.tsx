@@ -1,37 +1,99 @@
-import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Alert,
-  ScrollView,
-} from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import * as LocalAuthentication from 'expo-local-authentication';
+import { useRouter, useSearchParams } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import {
+    Alert,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+} from 'react-native';
 import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-  withTiming,
+    useAnimatedStyle,
+    useSharedValue,
+    withSpring,
+    withTiming,
 } from 'react-native-reanimated';
 import { supabase } from '../../lib/supabase';
-import * as LocalAuthentication from 'expo-local-authentication';
 
 export default function EmailVerificationScreen() {
   const router = useRouter();
+  const { token } = useSearchParams();
   const [loading, setLoading] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
   const [countdown, setCountdown] = useState(0);
   const [biometricsAvailable, setBiometricsAvailable] = useState(false);
   const [biometricsType, setBiometricsType] = useState<string>('');
+  const [verificationAttempted, setVerificationAttempted] = useState(false);
   const cardOpacity = useSharedValue(0);
 
   React.useEffect(() => {
     cardOpacity.value = withTiming(1, { duration: 800 });
     checkBiometrics();
   }, []);
+
+  // Handle deep link token
+  useEffect(() => {
+    if (token && !verificationAttempted) {
+      handleDeepLinkVerification(token as string);
+    }
+  }, [token]);
+
+  const handleDeepLinkVerification = async (verificationToken: string) => {
+    setLoading(true);
+    setVerificationAttempted(true);
+
+    try {
+      // Verify the email with the token
+      const { data, error } = await supabase.auth.verifyOtp({
+        token: verificationToken,
+        type: 'signup',
+      });
+
+      if (error) {
+        Alert.alert('Verification Failed', error.message);
+        return;
+      }
+
+      if (data.user?.email_confirmed_at) {
+        // Email verified successfully
+        if (biometricsAvailable) {
+          Alert.alert(
+            'Email Verified!',
+            'Your email has been successfully verified. Would you like to set up biometric authentication for faster login?',
+            [
+              {
+                text: 'Skip for Now',
+                onPress: () => router.replace('/auth/setup-pin')
+              },
+              {
+                text: 'Set Up Biometrics',
+                onPress: () => router.replace('/auth/setup-biometrics')
+              }
+            ]
+          );
+        } else {
+          Alert.alert(
+            'Email Verified!',
+            'Your email has been successfully verified. You can now proceed to set up your PIN.',
+            [
+              {
+                text: 'Continue',
+                onPress: () => router.replace('/auth/setup-pin')
+              }
+            ]
+          );
+        }
+      }
+    } catch (error) {
+      Alert.alert('Error', 'An unexpected error occurred during verification.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const checkBiometrics = async () => {
     try {
@@ -154,7 +216,7 @@ export default function EmailVerificationScreen() {
   };
 
   const handleBackToLogin = () => {
-          router.replace('/auth/login');
+    router.replace('/auth/login');
   };
 
   const cardAnimatedStyle = useAnimatedStyle(() => {
@@ -190,46 +252,65 @@ export default function EmailVerificationScreen() {
             </View>
             <Text style={styles.title}>Verify Your Email</Text>
             <Text style={styles.subtitle}>
-              We've sent a verification link to your email address
+              {token 
+                ? 'Verifying your email...' 
+                : 'We\'ve sent a verification link to your email address'
+              }
             </Text>
           </View>
 
           <View style={styles.formCard}>
-            <Text style={styles.instructionText}>
-              Please check your email and click the verification link to activate your account. 
-              If you don't see the email, check your spam folder.
-            </Text>
+            {token ? (
+              <View style={styles.verifyingContainer}>
+                <Text style={styles.verifyingText}>
+                  Please wait while we verify your email...
+                </Text>
+                {loading && (
+                  <View style={styles.loadingContainer}>
+                    <Ionicons name="refresh" size={24} color="#FF6B35" />
+                    <Text style={styles.loadingText}>Verifying...</Text>
+                  </View>
+                )}
+              </View>
+            ) : (
+              <>
+                <Text style={styles.instructionText}>
+                  Please check your email and click the verification link to activate your account. 
+                  If you don't see the email, check your spam folder.
+                </Text>
 
-            {/* Check Verification Button */}
-            <TouchableOpacity
-              style={[styles.checkButton, loading && styles.checkButtonDisabled]}
-              onPress={handleCheckVerification}
-              disabled={loading}
-            >
-              <Text style={styles.checkButtonText}>
-                {loading ? "Checking..." : "I've Verified My Email"}
-              </Text>
-            </TouchableOpacity>
+                {/* Check Verification Button */}
+                <TouchableOpacity
+                  style={[styles.checkButton, loading && styles.checkButtonDisabled]}
+                  onPress={handleCheckVerification}
+                  disabled={loading}
+                >
+                  <Text style={styles.checkButtonText}>
+                    {loading ? "Checking..." : "I've Verified My Email"}
+                  </Text>
+                </TouchableOpacity>
 
-            {/* Resend Email Button */}
-            <TouchableOpacity
-              style={[
-                styles.resendButton, 
-                (resendLoading || countdown > 0) && styles.resendButtonDisabled
-              ]}
-              onPress={handleResendEmail}
-              disabled={resendLoading || countdown > 0}
-            >
-              <Ionicons name="refresh" size={20} color="#FF6B35" />
-              <Text style={styles.resendButtonText}>
-                {resendLoading 
-                  ? "Sending..." 
-                  : countdown > 0 
-                    ? `Resend in ${countdown}s` 
-                    : "Resend Email"
-                }
-              </Text>
-            </TouchableOpacity>
+                {/* Resend Email Button */}
+                <TouchableOpacity
+                  style={[
+                    styles.resendButton, 
+                    (resendLoading || countdown > 0) && styles.resendButtonDisabled
+                  ]}
+                  onPress={handleResendEmail}
+                  disabled={resendLoading || countdown > 0}
+                >
+                  <Ionicons name="refresh" size={20} color="#FF6B35" />
+                  <Text style={styles.resendButtonText}>
+                    {resendLoading 
+                      ? "Sending..." 
+                      : countdown > 0 
+                        ? `Resend in ${countdown}s` 
+                        : "Resend Email"
+                    }
+                  </Text>
+                </TouchableOpacity>
+              </>
+            )}
 
             {/* Back to Login */}
             <TouchableOpacity
@@ -308,6 +389,25 @@ const styles = StyleSheet.create({
     shadowRadius: 3.84,
     elevation: 5,
     marginBottom: 20,
+  },
+  verifyingContainer: {
+    alignItems: 'center',
+    paddingVertical: 20,
+  },
+  verifyingText: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 14,
+    color: '#FF6B35',
+    marginLeft: 8,
   },
   instructionText: {
     fontSize: 14,

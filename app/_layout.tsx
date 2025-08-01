@@ -1,10 +1,27 @@
-import React from 'react';
 import { Stack } from 'expo-router';
+import React, { useEffect } from 'react';
+import AuthGuard from '../components/AuthGuard';
 import { AuthProvider } from '../contexts/AuthContext';
 import { UserProvider } from '../contexts/UserContext';
-import AuthGuard from '../components/AuthGuard';
+import { logEnvironmentConfig, validateEnvironment } from '../lib/config';
+import { initializeDeepLinking } from '../lib/deepLinking';
 
 export default function RootLayout() {
+  useEffect(() => {
+    // Log environment configuration in development
+    logEnvironmentConfig();
+    
+    // Validate environment variables
+    const { isValid, errors } = validateEnvironment();
+    if (!isValid) {
+      console.warn('⚠️ Environment validation failed:', errors);
+    }
+    
+    // Initialize deep linking
+    const cleanup = initializeDeepLinking();
+    return cleanup;
+  }, []);
+
   return (
     <AuthProvider>
       <UserProvider>
@@ -18,6 +35,7 @@ export default function RootLayout() {
             <Stack.Screen name="auth/email-verification" options={{ headerShown: false }} />
             <Stack.Screen name="auth/setup-biometrics" options={{ headerShown: false }} />
             <Stack.Screen name="auth/setup-pin" options={{ headerShown: false }} />
+            <Stack.Screen name="auth/face-id-auth" options={{ headerShown: false }} />
             <Stack.Screen name="onboarding" options={{ headerShown: false }} />
             <Stack.Screen name="splash" options={{ headerShown: false }} />
             <Stack.Screen name="dashboard" options={{ headerShown: false }} />
