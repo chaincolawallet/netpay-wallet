@@ -224,17 +224,34 @@ export const pinService = {
 // User Verification Service
 export const userService = {
   async verifyUserEmail(email: string) {
-    const response = await fetch(`${config.supabase.url}/functions/v1/verify-user-email`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ email }),
-    });
+    try {
+      // Use the new RPC function for user verification
+      const { data: userData, error: rpcError } = await supabase.rpc('verify_user_for_transfer', {
+        user_email: email.toLowerCase()
+      });
 
-    const result = await response.json();
-    if (!result.success) throw new Error(result.error);
-    return result.user;
+      if (rpcError) {
+        console.error('RPC error:', rpcError);
+        throw new Error('Failed to verify user');
+      }
+
+      if (!userData) {
+        throw new Error('User not found or not verified');
+      }
+
+      return {
+        id: userData.id,
+        email: userData.email,
+        full_name: userData.full_name || 'User',
+        phone_number: userData.phone_number,
+        created_at: userData.created_at,
+        email_confirmed_at: userData.email_confirmed_at,
+        verified: userData.verified,
+      };
+    } catch (error) {
+      console.error('User verification error:', error);
+      throw error;
+    }
   },
 };
 
