@@ -383,9 +383,14 @@ export const notificationManagement = {
 // Face ID Authentication Service
 export const biometricService = {
   async isBiometricAvailable() {
-    const hasHardware = await LocalAuthentication.hasHardwareAsync();
-    const isEnrolled = await LocalAuthentication.isEnrolledAsync();
-    return hasHardware && isEnrolled;
+    try {
+      const hasHardware = await LocalAuthentication.hasHardwareAsync();
+      const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+      return hasHardware && isEnrolled;
+    } catch (error) {
+      console.error('Error checking biometric availability:', error);
+      return false;
+    }
   },
 
   async authenticateWithBiometrics() {
@@ -402,6 +407,7 @@ export const biometricService = {
         error: result.error,
       };
     } catch (error) {
+      console.error('Biometric authentication error:', error);
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Biometric authentication failed',
@@ -411,17 +417,35 @@ export const biometricService = {
 
   async saveBiometricCredentials(userId: string, credentials: any) {
     try {
+      // Try to save biometric preference
       const { error } = await supabase
         .from('biometric_credentials')
         .upsert({
           user_id: userId,
-          credentials: credentials,
+          enabled: true,
           created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        }, {
+          onConflict: 'user_id'
         });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error saving biometric credentials:', error);
+        
+        // If table doesn't exist, provide helpful error message
+        if (error.code === '42P01') {
+          return {
+            success: false,
+            error: 'Biometric table not found. Please run the database migration first.',
+          };
+        }
+        
+        throw error;
+      }
+      
       return { success: true };
     } catch (error) {
+      console.error('Failed to save biometric credentials:', error);
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to save biometric credentials',
@@ -433,15 +457,25 @@ export const biometricService = {
     try {
       const { data, error } = await supabase
         .from('biometric_credentials')
-        .select('credentials')
+        .select('enabled, created_at')
         .eq('user_id', userId)
         .maybeSingle();
 
-      if (error) throw error;
-      return { success: true, credentials: data?.credentials };
+      if (error) {
+        console.error('Error getting biometric credentials:', error);
+        throw error;
+      }
+      
+      return { 
+        success: true, 
+        enabled: data?.enabled || false,
+        created_at: data?.created_at 
+      };
     } catch (error) {
+      console.error('Failed to get biometric credentials:', error);
       return {
         success: false,
+        enabled: false,
         error: error instanceof Error ? error.message : 'Failed to get biometric credentials',
       };
     }
@@ -454,9 +488,14 @@ export const biometricService = {
         .delete()
         .eq('user_id', userId);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error removing biometric credentials:', error);
+        throw error;
+      }
+      
       return { success: true };
     } catch (error) {
+      console.error('Failed to remove biometric credentials:', error);
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to remove biometric credentials',

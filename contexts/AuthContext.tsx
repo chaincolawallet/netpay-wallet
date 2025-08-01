@@ -61,10 +61,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           setSession(session);
           setUser(session?.user ?? null);
           
-          // Check if user has biometric credentials saved
+          // Check if user has biometric enabled
           if (session?.user) {
-            const { success, credentials } = await biometricService.getBiometricCredentials(session.user.id);
-            setBiometricEnabled(success && credentials);
+            const { success, enabled } = await biometricService.getBiometricCredentials(session.user.id);
+            setBiometricEnabled(success && enabled);
           }
         }
       } catch (error) {
@@ -85,8 +85,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         
         // Check biometric credentials when user changes
         if (session?.user) {
-          const { success, credentials } = await biometricService.getBiometricCredentials(session.user.id);
-          setBiometricEnabled(success && credentials);
+          const { success, enabled } = await biometricService.getBiometricCredentials(session.user.id);
+          setBiometricEnabled(success && enabled);
         } else {
           setBiometricEnabled(false);
         }
@@ -111,16 +111,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const { success, error } = await biometricService.authenticateWithBiometrics();
       
       if (success) {
-        // Get stored credentials and attempt to sign in
+        // Check if user has biometric enabled
         if (user) {
-          const { success: credSuccess, credentials } = await biometricService.getBiometricCredentials(user.id);
-          if (credSuccess && credentials) {
-            // Attempt to sign in with stored credentials
-            const result = await auth.signIn(credentials.email, credentials.password);
-            return { success: !result.error, error: result.error?.message };
+          const { success: credSuccess, enabled } = await biometricService.getBiometricCredentials(user.id);
+          if (credSuccess && enabled) {
+            // User has biometric enabled, authentication successful
+            return { success: true };
           }
         }
-        return { success: false, error: 'No stored credentials found' };
+        return { success: false, error: 'Biometric login not enabled for this user' };
       }
       
       return { success: false, error };
@@ -150,13 +149,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         return { success: false, error };
       }
 
-      // Store current user credentials for biometric login
-      const credentials = {
-        email: user.email,
-        password: 'stored_encrypted_password', // In production, store encrypted credentials
-      };
-
-      const saveResult = await biometricService.saveBiometricCredentials(user.id, credentials);
+      // Store biometric preference (not actual credentials for security)
+      const saveResult = await biometricService.saveBiometricCredentials(user.id, { enabled: true });
       if (saveResult.success) {
         setBiometricEnabled(true);
         return { success: true };
