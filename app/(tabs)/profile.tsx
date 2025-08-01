@@ -259,50 +259,7 @@ export default function ProfileScreen() {
         );
         break;
       case 'deleteAccount':
-        Alert.alert(
-          'Delete Account',
-          'This action cannot be undone. All your data, transactions, and account information will be permanently deleted.',
-          [
-            { text: 'Cancel', style: 'cancel' },
-            { 
-              text: 'Delete Account', 
-              style: 'destructive',
-              onPress: () => {
-                Alert.alert(
-                  'Confirm Deletion',
-                  'Are you absolutely sure you want to delete your account? This action is irreversible.',
-                  [
-                    { text: 'Cancel', style: 'cancel' },
-                    { 
-                      text: 'Yes, Delete My Account', 
-                      style: 'destructive',
-                      onPress: async () => {
-                        try {
-                          // In a real app, this would call the API to delete the account
-                          Alert.alert(
-                            'Account Deleted',
-                            'Your account has been permanently deleted. Thank you for using NetPay.',
-                            [
-                              {
-                                text: 'OK',
-                                onPress: async () => {
-                                  await signOut();
-                                  router.replace('/auth/login');
-                                },
-                              },
-                            ]
-                          );
-                        } catch (error) {
-                          console.error('Error deleting account:', error);
-                        }
-                      },
-                    },
-                  ]
-                );
-              },
-            },
-          ]
-        );
+        router.push('/delete-account');
         break;
       case 'editProfile':
         router.push('/personal-information');

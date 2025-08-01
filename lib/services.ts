@@ -503,3 +503,179 @@ export const biometricService = {
     }
   },
 }; 
+
+// Account Deletion Service
+export const accountDeletionService = {
+  async deleteAccount(userId: string, password: string) {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      // First, verify the user's password
+      const { error: reauthError } = await supabase.auth.signInWithPassword({
+        email: user.email!,
+        password: password,
+      });
+
+      if (reauthError) {
+        return {
+          success: false,
+          error: 'Invalid password. Please try again.',
+        };
+      }
+
+      // Delete all user data in the correct order
+      const deletionSteps = [
+        // 1. Delete biometric credentials
+        async () => {
+          const { error } = await supabase
+            .from('biometric_credentials')
+            .delete()
+            .eq('user_id', userId);
+          return { step: 'biometric_credentials', error };
+        },
+        
+        // 2. Delete notifications
+        async () => {
+          const { error } = await supabase
+            .from('notifications')
+            .delete()
+            .eq('user_id', userId);
+          return { step: 'notifications', error };
+        },
+        
+        // 3. Delete notification preferences
+        async () => {
+          const { error } = await supabase
+            .from('notification_preferences')
+            .delete()
+            .eq('user_id', userId);
+          return { step: 'notification_preferences', error };
+        },
+        
+        // 4. Delete transactions
+        async () => {
+          const { error } = await supabase
+            .from('transactions')
+            .delete()
+            .eq('user_id', userId);
+          return { step: 'transactions', error };
+        },
+        
+        // 5. Delete transfers
+        async () => {
+          const { error } = await supabase
+            .from('transfers')
+            .delete()
+            .eq('user_id', userId);
+          return { step: 'transfers', error };
+        },
+        
+        // 6. Delete wallet
+        async () => {
+          const { error } = await supabase
+            .from('wallets')
+            .delete()
+            .eq('user_id', userId);
+          return { step: 'wallets', error };
+        },
+        
+        // 7. Delete virtual accounts
+        async () => {
+          const { error } = await supabase
+            .from('virtual_accounts')
+            .delete()
+            .eq('user_id', userId);
+          return { step: 'virtual_accounts', error };
+        },
+        
+        // 8. Delete user profile
+        async () => {
+          const { error } = await supabase
+            .from('profiles')
+            .delete()
+            .eq('id', userId);
+          return { step: 'profiles', error };
+        },
+      ];
+
+      // Execute deletion steps
+      const results = [];
+      for (const step of deletionSteps) {
+        const result = await step();
+        results.push(result);
+        
+        // Log any errors but continue with deletion
+        if (result.error) {
+          console.warn(`Warning: Error deleting ${result.step}:`, result.error);
+        }
+      }
+
+      // Finally, delete the user account from Supabase Auth
+      const { error: authError } = await supabase.auth.admin.deleteUser(userId);
+      
+      if (authError) {
+        console.error('Error deleting user from auth:', authError);
+        return {
+          success: false,
+          error: 'Failed to delete account. Please contact support.',
+        };
+      }
+
+      return {
+        success: true,
+        message: 'Account successfully deleted',
+        deletionResults: results,
+      };
+    } catch (error) {
+      console.error('Account deletion error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to delete account',
+      };
+    }
+  },
+
+  async requestAccountDeletion(userId: string, reason?: string) {
+    try {
+      const { error } = await supabase
+        .from('deletion_requests')
+        .insert({
+          user_id: userId,
+          reason: reason || 'User requested account deletion',
+          status: 'pending',
+          requested_at: new Date().toISOString(),
+        });
+
+      if (error) throw error;
+      
+      return { success: true };
+    } catch (error) {
+      console.error('Error requesting account deletion:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to request account deletion',
+      };
+    }
+  },
+
+  async cancelAccountDeletion(userId: string) {
+    try {
+      const { error } = await supabase
+        .from('deletion_requests')
+        .delete()
+        .eq('user_id', userId)
+        .eq('status', 'pending');
+
+      if (error) throw error;
+      
+      return { success: true };
+    } catch (error) {
+      console.error('Error canceling account deletion:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to cancel account deletion',
+      };
+    }
+  },
+}; 

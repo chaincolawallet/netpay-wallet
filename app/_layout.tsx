@@ -62,6 +62,7 @@ export default function RootLayout() {
             <Stack.Screen name="about-netpay" options={{ headerShown: false }} />
             <Stack.Screen name="bank-accounts" options={{ headerShown: false }} />
             <Stack.Screen name="earnings" options={{ headerShown: false }} />
+            <Stack.Screen name="delete-account" options={{ headerShown: false }} />
           </Stack>
         </AuthGuard>
       </UserProvider>
