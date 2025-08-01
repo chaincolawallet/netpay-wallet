@@ -1,22 +1,24 @@
-import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, Dimensions } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import Animated, { 
-  useSharedValue, 
-  useAnimatedStyle, 
-  withSpring, 
-  withRepeat, 
-  withTiming,
-  interpolate,
-  Extrapolate
+import React, { useEffect } from 'react';
+import { Dimensions, StyleSheet, Text, View } from 'react-native';
+import Animated, {
+    Extrapolate,
+    interpolate,
+    useAnimatedStyle,
+    useSharedValue,
+    withRepeat,
+    withSpring,
+    withTiming
 } from 'react-native-reanimated';
+import { useAuth } from '../contexts/AuthContext';
 
 const { width, height } = Dimensions.get('window');
 
 export default function SplashScreen() {
   const router = useRouter();
+  const { user, loading } = useAuth();
   const scale = useSharedValue(0.3);
   const opacity = useSharedValue(0);
   const rotation = useSharedValue(0);
@@ -33,13 +35,21 @@ export default function SplashScreen() {
       false
     );
 
-    // Navigate to onboarding after 3 seconds
+    // Navigate based on authentication status
     const timer = setTimeout(() => {
-      router.replace('/onboarding');
+      if (!loading) {
+        if (user) {
+          // User is authenticated, go to home
+          router.replace('/(tabs)');
+        } else {
+          // User is not authenticated, go to onboarding
+          router.replace('/onboarding');
+        }
+      }
     }, 3000);
 
     return () => clearTimeout(timer);
-  }, []);
+  }, [user, loading]);
 
   const logoAnimatedStyle = useAnimatedStyle(() => {
     return {

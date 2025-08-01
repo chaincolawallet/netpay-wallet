@@ -1,38 +1,35 @@
-import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TextInput,
-  TouchableOpacity,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import React, { useState } from 'react';
+import {
+    Alert,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
+} from 'react-native';
 import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-  withTiming,
+    useAnimatedStyle,
+    useSharedValue,
+    withSpring,
+    withTiming,
 } from 'react-native-reanimated';
 import { useAuth } from '../../contexts/AuthContext';
-import * as LocalAuthentication from 'expo-local-authentication';
 
 export default function LoginScreen() {
   const router = useRouter();
-  const { signIn } = useAuth();
+  const { signIn, biometricAvailable, biometricEnabled } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loginAttempts, setLoginAttempts] = useState(0);
   const [isLocked, setIsLocked] = useState(false);
-  const [biometricsAvailable, setBiometricsAvailable] = useState(false);
-  const [biometricsType, setBiometricsType] = useState<string>('');
 
   // Error states
   const [errors, setErrors] = useState<{[key: string]: string}>({});
@@ -42,30 +39,7 @@ export default function LoginScreen() {
 
   React.useEffect(() => {
     formOpacity.value = withTiming(1, { duration: 800 });
-    checkBiometrics();
   }, []);
-
-  const checkBiometrics = async () => {
-    try {
-      const hasHardware = await LocalAuthentication.hasHardwareAsync();
-      const isEnrolled = await LocalAuthentication.isEnrolledAsync();
-      
-      if (hasHardware && isEnrolled) {
-        const supportedTypes = await LocalAuthentication.supportedAuthenticationTypesAsync();
-        setBiometricsAvailable(true);
-        
-        if (supportedTypes.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION)) {
-          setBiometricsType('Face ID');
-        } else if (supportedTypes.includes(LocalAuthentication.AuthenticationType.FINGERPRINT)) {
-          setBiometricsType('Touch ID');
-        } else {
-          setBiometricsType('Biometric');
-        }
-      }
-    } catch (error) {
-      console.log('Biometrics not available:', error);
-    }
-  };
 
   const validateEmail = (email: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -140,32 +114,18 @@ export default function LoginScreen() {
     router.push('/auth/signup');
   };
 
-  const handleBiometricLogin = async () => {
-    if (!biometricsAvailable) {
-      Alert.alert('Biometrics Not Available', 'Biometric authentication is not available on this device.');
+  const handleFaceIDAuth = () => {
+    if (!biometricAvailable) {
+      Alert.alert('Face ID Not Available', 'Face ID is not available on this device.');
       return;
     }
 
-    try {
-      const result = await LocalAuthentication.authenticateAsync({
-        promptMessage: `Authenticate with ${biometricsType}`,
-        fallbackLabel: 'Use Passcode',
-        cancelLabel: 'Cancel',
-      });
-
-      if (result.success) {
-        // For demo purposes, we'll use a mock login
-        // In a real app, you would retrieve stored credentials and login
-        Alert.alert('Success', 'Biometric authentication successful! Please enter your credentials to continue.');
-      } else if (result.error === 'UserCancel') {
-        // User cancelled the authentication
-        return;
-      } else {
-        Alert.alert('Authentication Failed', 'Biometric authentication failed. Please try again or use your email and password.');
-      }
-    } catch (error) {
-      Alert.alert('Error', 'Biometric authentication error. Please use your email and password.');
+    if (!biometricEnabled) {
+      Alert.alert('Face ID Not Enabled', 'Please enable Face ID in your profile settings first.');
+      return;
     }
+
+    router.push('/auth/face-id-auth');
   };
 
   const clearError = (field: string) => {
@@ -288,26 +248,22 @@ export default function LoginScreen() {
                 </Animated.View>
               </TouchableOpacity>
 
-              {/* Biometrics Button */}
-              {biometricsAvailable && (
+              {/* Face ID Button */}
+              {biometricAvailable && biometricEnabled && (
                 <TouchableOpacity
                   style={styles.biometricsButton}
-                  onPress={handleBiometricLogin}
+                  onPress={handleFaceIDAuth}
                   activeOpacity={0.8}
                 >
-                  <Ionicons 
-                    name={biometricsType === 'Face ID' ? 'scan' : 'finger-print'} 
-                    size={20} 
-                    color="#FF6B35" 
-                  />
+                  <Ionicons name="scan" size={20} color="#FF6B35" />
                   <Text style={styles.biometricsButtonText}>
-                    Sign in with {biometricsType}
+                    Sign in with Face ID
                   </Text>
                 </TouchableOpacity>
               )}
 
               {/* Divider */}
-              {biometricsAvailable && (
+              {biometricAvailable && biometricEnabled && (
                 <View style={styles.dividerContainer}>
                   <View style={styles.divider} />
                   <Text style={styles.dividerText}>or</Text>

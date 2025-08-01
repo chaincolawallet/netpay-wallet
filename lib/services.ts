@@ -1,3 +1,4 @@
+import * as LocalAuthentication from 'expo-local-authentication';
 import { supabase } from './supabase';
 
 // Types for API requests and responses
@@ -375,5 +376,90 @@ export const notificationManagement = {
 
     if (error) throw error;
     return true;
+  },
+};
+
+// Face ID Authentication Service
+export const biometricService = {
+  async isBiometricAvailable() {
+    const hasHardware = await LocalAuthentication.hasHardwareAsync();
+    const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+    return hasHardware && isEnrolled;
+  },
+
+  async authenticateWithBiometrics() {
+    try {
+      const result = await LocalAuthentication.authenticateAsync({
+        promptMessage: 'Authenticate with Face ID',
+        fallbackLabel: 'Use PIN',
+        cancelLabel: 'Cancel',
+        disableDeviceFallback: false,
+      });
+      
+      return {
+        success: result.success,
+        error: result.error,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Biometric authentication failed',
+      };
+    }
+  },
+
+  async saveBiometricCredentials(userId: string, credentials: any) {
+    try {
+      const { error } = await supabase
+        .from('biometric_credentials')
+        .upsert({
+          user_id: userId,
+          credentials: credentials,
+          created_at: new Date().toISOString(),
+        });
+
+      if (error) throw error;
+      return { success: true };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to save biometric credentials',
+      };
+    }
+  },
+
+  async getBiometricCredentials(userId: string) {
+    try {
+      const { data, error } = await supabase
+        .from('biometric_credentials')
+        .select('credentials')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (error) throw error;
+      return { success: true, credentials: data?.credentials };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get biometric credentials',
+      };
+    }
+  },
+
+  async removeBiometricCredentials(userId: string) {
+    try {
+      const { error } = await supabase
+        .from('biometric_credentials')
+        .delete()
+        .eq('user_id', userId);
+
+      if (error) throw error;
+      return { success: true };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to remove biometric credentials',
+      };
+    }
   },
 }; 

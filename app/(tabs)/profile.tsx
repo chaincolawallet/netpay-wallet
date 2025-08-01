@@ -1,34 +1,30 @@
-import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  Switch,
-  Alert,
-} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import React, { useEffect, useState } from 'react';
+import {
+    Alert,
+    ScrollView,
+    StyleSheet,
+    Switch,
+    Text,
+    TouchableOpacity,
+    View,
+} from 'react-native';
 import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-  withTiming,
+    useAnimatedStyle,
+    useSharedValue,
+    withSpring,
+    withTiming,
 } from 'react-native-reanimated';
 import { useAuth } from '../../contexts/AuthContext';
 import { useUser } from '../../contexts/UserContext';
-import { supabase, db } from '../../lib/supabase';
-import * as LocalAuthentication from 'expo-local-authentication';
+import { db } from '../../lib/supabase';
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const { user, signOut } = useAuth();
+  const { user, signOut, biometricAvailable, biometricEnabled, enableBiometrics, disableBiometrics } = useAuth();
   const { profile, loading } = useUser();
-  const [biometricEnabled, setBiometricEnabled] = useState(false);
-  const [biometricsAvailable, setBiometricsAvailable] = useState(false);
-  const [biometricsType, setBiometricsType] = useState<string>('');
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [darkModeEnabled, setDarkModeEnabled] = useState(false);
   const [notificationPreferences, setNotificationPreferences] = useState({
@@ -45,34 +41,8 @@ export default function ProfileScreen() {
   useEffect(() => {
     if (user && profile) {
       fetchNotificationPreferences();
-      checkBiometrics();
     }
   }, [user, profile]);
-
-  const checkBiometrics = async () => {
-    try {
-      const hasHardware = await LocalAuthentication.hasHardwareAsync();
-      const isEnrolled = await LocalAuthentication.isEnrolledAsync();
-      
-      if (hasHardware && isEnrolled) {
-        const supportedTypes = await LocalAuthentication.supportedAuthenticationTypesAsync();
-        setBiometricsAvailable(true);
-        
-        if (supportedTypes.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION)) {
-          setBiometricsType('Face ID');
-        } else if (supportedTypes.includes(LocalAuthentication.AuthenticationType.FINGERPRINT)) {
-          setBiometricsType('Touch ID');
-        } else {
-          setBiometricsType('Biometric');
-        }
-      } else {
-        setBiometricsAvailable(false);
-      }
-    } catch (error) {
-      console.log('Biometrics not available:', error);
-      setBiometricsAvailable(false);
-    }
-  };
 
   const fetchNotificationPreferences = async () => {
     if (!user) return;
@@ -115,51 +85,43 @@ export default function ProfileScreen() {
 
     if (enabled) {
       // Enable biometrics
-      if (!biometricsAvailable) {
+      if (!biometricAvailable) {
         Alert.alert(
-          'Biometrics Not Available',
-          'Biometric authentication is not available on this device.',
+          'Face ID Not Available',
+          'Face ID is not available on this device.',
           [{ text: 'OK' }]
         );
         return;
       }
 
       try {
-        const result = await LocalAuthentication.authenticateAsync({
-          promptMessage: `Enable ${biometricsType} for NetPay`,
-          fallbackLabel: 'Use Passcode',
-          cancelLabel: 'Cancel',
-        });
-
-        if (result.success) {
-          setBiometricEnabled(true);
+        const { success, error } = await enableBiometrics();
+        
+        if (success) {
           Alert.alert(
-            'Biometrics Enabled',
-            `${biometricsType} has been enabled for NetPay login.`,
+            'Face ID Enabled',
+            'Face ID has been enabled for NetPay login.',
             [{ text: 'OK' }]
           );
-        } else if (result.error === 'UserCancel') {
-          // User cancelled the authentication
-          return;
         } else {
           Alert.alert(
             'Authentication Failed',
-            'Biometric authentication failed. Please try again.',
+            error || 'Face ID authentication failed. Please try again.',
             [{ text: 'OK' }]
           );
         }
       } catch (error) {
         Alert.alert(
           'Error',
-          'An error occurred while enabling biometrics.',
+          'An error occurred while enabling Face ID.',
           [{ text: 'OK' }]
         );
       }
     } else {
       // Disable biometrics
       Alert.alert(
-        'Disable Biometrics',
-        'Are you sure you want to disable biometric login?',
+        'Disable Face ID',
+        'Are you sure you want to disable Face ID login?',
         [
           {
             text: 'Cancel',
@@ -168,13 +130,29 @@ export default function ProfileScreen() {
           {
             text: 'Disable',
             style: 'destructive',
-            onPress: () => {
-              setBiometricEnabled(false);
-              Alert.alert(
-                'Biometrics Disabled',
-                'Biometric login has been disabled.',
-                [{ text: 'OK' }]
-              );
+            onPress: async () => {
+              try {
+                const { success, error } = await disableBiometrics();
+                if (success) {
+                  Alert.alert(
+                    'Face ID Disabled',
+                    'Face ID login has been disabled.',
+                    [{ text: 'OK' }]
+                  );
+                } else {
+                  Alert.alert(
+                    'Error',
+                    error || 'Failed to disable Face ID.',
+                    [{ text: 'OK' }]
+                  );
+                }
+              } catch (error) {
+                Alert.alert(
+                  'Error',
+                  'An error occurred while disabling Face ID.',
+                  [{ text: 'OK' }]
+                );
+              }
             },
           },
         ]
@@ -432,12 +410,12 @@ export default function ProfileScreen() {
             <View style={styles.settingItem}>
               <View style={styles.settingInfo}>
                 <Ionicons 
-                  name={biometricsType === 'Face ID' ? 'scan' : 'finger-print'} 
+                  name={biometricEnabled ? 'scan' : 'finger-print'} 
                   size={24} 
                   color="#FF6B35" 
                 />
                 <Text style={styles.settingLabel}>
-                  {biometricsType} Login
+                  {biometricEnabled ? 'Face ID' : 'Touch ID'} Login
                 </Text>
               </View>
               <Switch
@@ -445,7 +423,7 @@ export default function ProfileScreen() {
                 onValueChange={handleBiometricToggle}
                 trackColor={{ false: '#e0e0e0', true: '#FF6B35' }}
                 thumbColor={biometricEnabled ? '#fff' : '#f4f3f4'}
-                disabled={!biometricsAvailable}
+                disabled={!biometricAvailable}
               />
             </View>
             <View style={styles.settingItem}>
